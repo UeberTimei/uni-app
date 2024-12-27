@@ -4,6 +4,8 @@ import { useState } from "react";
 import DestinationsCard from "../components/DestinationsCard";
 import CreateDestinationForm from "./CreateDestinationForm";
 import { useRole } from "../context";
+import HighlightedText from "../components/HighlightedText";
+import SortButton from "../components/SortButton";
 
 type SortField =
   | "none"
@@ -22,66 +24,6 @@ type Destination = {
   Currency: string | null;
 };
 
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
-
 export function DestinationsList({
   initialDestinations,
 }: {
@@ -96,17 +38,14 @@ export function DestinationsList({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setDestinations(filterDestinations(originalDestinations, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortDestinations = (
+    destinations: Destination[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...destinations];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedDestinations = [...destinations].sort((a, b) => {
+    return [...destinations].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
@@ -115,28 +54,19 @@ export function DestinationsList({
         compareB = Number(compareB) || -Infinity;
       }
 
-      if (!compareA) {
-        compareA = 0;
-      }
-      if (!compareB) {
-        compareB = 0;
-      }
+      if (!compareA) compareA = 0;
+      if (!compareB) compareB = 0;
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setDestinations(sortedDestinations);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterDestinations = (destinations: Destination[], query: string) => {
-    if (!query.trim())
-      return sortField === "none" ? originalDestinations : destinations;
+    if (!query.trim()) return destinations;
 
     return destinations.filter(
       (destination) =>
@@ -147,21 +77,43 @@ export function DestinationsList({
     );
   };
 
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      const newOrder = sortOrder === "asc" ? "desc" : "asc";
+      setSortOrder(newOrder);
+      const sorted = sortDestinations(
+        filterDestinations(originalDestinations, searchQuery),
+        field,
+        newOrder
+      );
+      setDestinations(sorted);
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+      const sorted = sortDestinations(
+        filterDestinations(originalDestinations, searchQuery),
+        field,
+        "asc"
+      );
+      setDestinations(sorted);
+    }
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filteredDestinations = filterDestinations(
-      sortField === "none" ? originalDestinations : destinations,
-      query
-    );
-    setDestinations(filteredDestinations);
+    const filtered = filterDestinations(originalDestinations, query);
+    const sorted = sortDestinations(filtered, sortField, sortOrder);
+    setDestinations(sorted);
   };
 
   const handleDestinationDelete = (deletedDestinationId: number) => {
-    setDestinations((prevDestinations) =>
-      prevDestinations.filter(
-        (destination) => destination.DestinationID !== deletedDestinationId
-      )
+    const updatedOriginal = originalDestinations.filter(
+      (destination) => destination.DestinationID !== deletedDestinationId
     );
+    const updatedFiltered = filterDestinations(updatedOriginal, searchQuery);
+    const sorted = sortDestinations(updatedFiltered, sortField, sortOrder);
+
+    setDestinations(sorted);
   };
 
   return (

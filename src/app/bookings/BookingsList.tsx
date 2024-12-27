@@ -3,6 +3,7 @@
 import { useState } from "react";
 import BookingsCard from "../components/BookingsCard";
 import CreateBookingForm from "./CreateBookingForm";
+import SortButton from "../components/SortButton";
 
 type SortField =
   | "none"
@@ -44,66 +45,6 @@ export type Hotel = {
   DestinationID: number;
 };
 
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
-
 export function BookingsList({
   initialBookings,
   isCustomerSpecific = false,
@@ -118,17 +59,14 @@ export function BookingsList({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setBookings(filterBookings(originalBookings, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortBookings = (
+    bookings: Booking[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...bookings];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedBookings = [...bookings].sort((a, b) => {
+    return [...bookings].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
@@ -145,21 +83,16 @@ export function BookingsList({
       if (!compareA) compareA = 0;
       if (!compareB) compareB = 0;
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setBookings(sortedBookings);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterBookings = (bookings: Booking[], query: string) => {
-    if (!query.trim())
-      return sortField === "none" ? originalBookings : bookings;
+    if (!query.trim()) return bookings;
 
     return bookings.filter((booking) => {
       const searchFields = [
@@ -176,108 +109,102 @@ export function BookingsList({
     });
   };
 
+  const handleSort = (field: SortField) => {
+    const newSortOrder =
+      field === sortField && sortOrder === "asc" ? "desc" : "asc";
+
+    const sortedBookings = sortBookings(
+      filterBookings(originalBookings, searchQuery),
+      field,
+      newSortOrder
+    );
+
+    setBookings(sortedBookings);
+    setSortField(field);
+    setSortOrder(newSortOrder);
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filteredBookings = filterBookings(
-      sortField === "none" ? originalBookings : bookings,
-      query
-    );
-    setBookings(filteredBookings);
+    const filteredBookings = filterBookings(originalBookings, query);
+    const sortedBookings = sortBookings(filteredBookings, sortField, sortOrder);
+    setBookings(sortedBookings);
   };
 
   const handleBookingDelete = (deletedBookingId: number) => {
-    setBookings((prevBookings) =>
-      prevBookings.filter((booking) => booking.BookingID !== deletedBookingId)
+    const updatedBookings = originalBookings.filter(
+      (booking) => booking.BookingID !== deletedBookingId
     );
+    const filteredBookings = filterBookings(updatedBookings, searchQuery);
+    const sortedBookings = sortBookings(filteredBookings, sortField, sortOrder);
+    setBookings(sortedBookings);
   };
 
   return (
     <>
-      {bookings.length === 1 && (
-        <>
-          <div className="flex justify-center items-center mb-4">
-            <button
-              onClick={() => setIsCreating(true)}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-            >
-              Создать бронирование
-            </button>
+      <div className="w-full max-w-4xl mb-6">
+        <div className="flex justify-center items-center mb-4">
+          <button
+            onClick={() => setIsCreating(true)}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            Создать бронирование
+          </button>
+        </div>
+        {isCreating ? (
+          <div className="mb-6">
+            <CreateBookingForm onCancel={() => setIsCreating(false)} />
           </div>
-          {isCreating && (
-            <div className="mb-10">
-              <CreateBookingForm onCancel={() => setIsCreating(false)} />
-            </div>
-          )}
-        </>
-      )}
-
-      {bookings.length > 1 && (
-        <>
+        ) : (
           <div className="w-full max-w-4xl mb-6">
-            <div className="flex justify-center items-center mb-4">
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                Создать бронирование
-              </button>
-            </div>
-            {isCreating ? (
-              <div className="mb-6">
-                <CreateBookingForm onCancel={() => setIsCreating(false)} />
-              </div>
-            ) : (
-              <div className="w-full max-w-4xl mb-6">
-                <input
-                  type="text"
-                  placeholder="Поиск бронирований..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
+            <input
+              type="text"
+              placeholder="Поиск бронирований..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
+        )}
+      </div>
 
-          <div className="flex gap-4 mb-6 flex-wrap">
-            <SortButton
-              field="none"
-              label="Без сортировки"
-              active={sortField === "none"}
-              ascending={true}
-              onClick={() => handleSort("none")}
-            />
-            <SortButton
-              field="BookingDate"
-              label="По дате бронирования"
-              active={sortField === "BookingDate"}
-              ascending={sortField === "BookingDate" && sortOrder === "asc"}
-              onClick={() => handleSort("BookingDate")}
-            />
-            <SortButton
-              field="CheckInDate"
-              label="По дате въезда"
-              active={sortField === "CheckInDate"}
-              ascending={sortField === "CheckInDate" && sortOrder === "asc"}
-              onClick={() => handleSort("CheckInDate")}
-            />
-            <SortButton
-              field="CheckOutDate"
-              label="По дате выезда"
-              active={sortField === "CheckOutDate"}
-              ascending={sortField === "CheckOutDate" && sortOrder === "asc"}
-              onClick={() => handleSort("CheckOutDate")}
-            />
-            <SortButton
-              field="TotalCost"
-              label="По стоимости"
-              active={sortField === "TotalCost"}
-              ascending={sortField === "TotalCost" && sortOrder === "asc"}
-              onClick={() => handleSort("TotalCost")}
-            />
-          </div>
-        </>
-      )}
+      <div className="flex gap-4 mb-6 flex-wrap">
+        <SortButton
+          field="none"
+          label="Без сортировки"
+          active={sortField === "none"}
+          ascending={true}
+          onClick={() => handleSort("none")}
+        />
+        <SortButton
+          field="BookingDate"
+          label="По дате бронирования"
+          active={sortField === "BookingDate"}
+          ascending={sortField === "BookingDate" && sortOrder === "asc"}
+          onClick={() => handleSort("BookingDate")}
+        />
+        <SortButton
+          field="CheckInDate"
+          label="По дате въезда"
+          active={sortField === "CheckInDate"}
+          ascending={sortField === "CheckInDate" && sortOrder === "asc"}
+          onClick={() => handleSort("CheckInDate")}
+        />
+        <SortButton
+          field="CheckOutDate"
+          label="По дате выезда"
+          active={sortField === "CheckOutDate"}
+          ascending={sortField === "CheckOutDate" && sortOrder === "asc"}
+          onClick={() => handleSort("CheckOutDate")}
+        />
+        <SortButton
+          field="TotalCost"
+          label="По стоимости"
+          active={sortField === "TotalCost"}
+          ascending={sortField === "TotalCost" && sortOrder === "asc"}
+          onClick={() => handleSort("TotalCost")}
+        />
+      </div>
 
       <div className="flex flex-col items-center max-w-4xl w-full space-y-4">
         {bookings.length > 0 ? (

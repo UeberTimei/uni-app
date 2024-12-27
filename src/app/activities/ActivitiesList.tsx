@@ -4,6 +4,8 @@ import { useState } from "react";
 import ActivitiesCard from "../components/ActivitiesCard";
 import CreateActivityForm from "./CreateActivityForm";
 import { useRole } from "../context";
+import SortButton from "../components/SortButton";
+import HighlightedText from "../components/HighlightedText";
 
 type SortField = "none" | "ActivityName" | "Duration" | "Cost";
 type SortOrder = "asc" | "desc";
@@ -16,66 +18,6 @@ type Activity = {
   Duration: number;
   Cost: number;
 };
-
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
 
 export function ActivitiesList({
   initialActivities,
@@ -91,17 +33,14 @@ export function ActivitiesList({
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setActivities(filterActivities(originalActivities, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortActivities = (
+    activities: Activity[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...activities];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedActivities = [...activities].sort((a, b) => {
+    return [...activities].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
@@ -110,21 +49,16 @@ export function ActivitiesList({
         compareB = Number(compareB);
       }
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setActivities(sortedActivities);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterActivities = (activities: Activity[], query: string) => {
-    if (!query.trim())
-      return sortField === "none" ? originalActivities : activities;
+    if (!query.trim()) return activities;
 
     return activities.filter(
       (activity) =>
@@ -134,21 +68,43 @@ export function ActivitiesList({
     );
   };
 
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      const newOrder = sortOrder === "asc" ? "desc" : "asc";
+      setSortOrder(newOrder);
+      const sorted = sortActivities(
+        filterActivities(originalActivities, searchQuery),
+        field,
+        newOrder
+      );
+      setActivities(sorted);
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+      const sorted = sortActivities(
+        filterActivities(originalActivities, searchQuery),
+        field,
+        "asc"
+      );
+      setActivities(sorted);
+    }
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filteredActivities = filterActivities(
-      sortField === "none" ? originalActivities : activities,
-      query
-    );
-    setActivities(filteredActivities);
+    const filtered = filterActivities(originalActivities, query);
+    const sorted = sortActivities(filtered, sortField, sortOrder);
+    setActivities(sorted);
   };
 
   const handleActivityDelete = (deletedActivityId: number) => {
-    setActivities((prevActivities) =>
-      prevActivities.filter(
-        (activity) => activity.ActivityID !== deletedActivityId
-      )
+    const updatedOriginal = originalActivities.filter(
+      (activity) => activity.ActivityID !== deletedActivityId
     );
+    const updatedFiltered = filterActivities(updatedOriginal, searchQuery);
+    const sorted = sortActivities(updatedFiltered, sortField, sortOrder);
+
+    setActivities(sorted);
   };
 
   return (
@@ -178,6 +134,7 @@ export function ActivitiesList({
           />
         )}
       </div>
+
       {!isCreating && (
         <>
           <div className="flex gap-4 mb-6">

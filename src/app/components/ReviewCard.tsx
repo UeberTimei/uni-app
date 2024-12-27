@@ -3,7 +3,7 @@ type ReviewProps = {
   LastName: string;
   CountryName: string;
   CityName: string;
-  Rating: "ONE" | "TWO" | "THREE" | "FOUR" | "FIVE";
+  Rating: "NULL" | "ONE" | "TWO" | "THREE" | "FOUR" | "FIVE";
   Comment: string;
   ReviewDate: string;
 };
@@ -24,6 +24,7 @@ export default function Review({
       THREE: 3,
       FOUR: 4,
       FIVE: 5,
+      NULL: 0,
     };
 
     return ratingMap[textRating as keyof typeof ratingMap] || 0;

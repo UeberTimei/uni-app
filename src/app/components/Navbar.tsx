@@ -1,6 +1,5 @@
 "use client";
 
-// import { getSession } from "@/lib/session";
 import Link from "next/link";
 import { logout } from "../login/actions";
 import { useEffect, useState } from "react";

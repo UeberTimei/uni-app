@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import UsersCard from "../components/UsersCard";
+import HighlightedText from "../components/HighlightedText";
+import SortButton from "../components/SortButton";
 
 type SortField = "none" | "name" | "email" | "role" | "createdAt";
 type SortOrder = "asc" | "desc";
@@ -16,66 +18,6 @@ type User = {
   updatedAt: Date;
 };
 
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
-
 export function UsersList({ initialUsers }: { initialUsers: User[] }) {
   const [originalUsers] = useState(initialUsers);
   const [filteredUsers, setFilteredUsers] = useState(initialUsers);
@@ -84,7 +26,6 @@ export function UsersList({ initialUsers }: { initialUsers: User[] }) {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter users based on search query
   const filterUsers = (users: User[], query: string) => {
     if (!query.trim()) return users;
 
@@ -96,7 +37,6 @@ export function UsersList({ initialUsers }: { initialUsers: User[] }) {
     );
   };
 
-  // Sort users based on current sort field and order
   const sortUsers = (users: User[], field: SortField, order: SortOrder) => {
     if (field === "none") return users;
 
@@ -123,17 +63,14 @@ export function UsersList({ initialUsers }: { initialUsers: User[] }) {
     });
   };
 
-  // Handle search input changes
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     const filtered = filterUsers(originalUsers, query);
     setFilteredUsers(filtered);
-    // Apply current sort to filtered results
     const sorted = sortUsers(filtered, sortField, sortOrder);
     setDisplayedUsers(sorted);
   };
 
-  // Handle sort button clicks
   const handleSort = (field: SortField) => {
     const newSortOrder =
       field === sortField && sortOrder === "asc" ? "desc" : "asc";

@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { BookingsList } from "./BookingsList";
 
-async function getBookings() {
+export async function getBookings() {
   const bookings = await prisma.booking.findMany();
 
   return bookings.map((booking) => ({
@@ -10,6 +10,34 @@ async function getBookings() {
     CheckInDate: new Date(booking.CheckInDate),
     CheckOutDate: new Date(booking.CheckOutDate),
     TotalCost: Number(booking.TotalCost),
+  }));
+}
+
+export async function getBookingsByUserId(UserId: string) {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      Customer: {
+        UserId: UserId,
+      },
+      Reviews: {
+        none: {},
+      },
+    },
+    include: {
+      Hotel: true,
+    },
+  });
+
+  return bookings.map((booking) => ({
+    ...booking,
+    BookingDate: new Date(booking.BookingDate),
+    CheckInDate: new Date(booking.CheckInDate),
+    CheckOutDate: new Date(booking.CheckOutDate),
+    TotalCost: Number(booking.TotalCost),
+    Hotel: {
+      ...booking.Hotel,
+      PricePerNight: Number(booking.Hotel.PricePerNight),
+    },
   }));
 }
 

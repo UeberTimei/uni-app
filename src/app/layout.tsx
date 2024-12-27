@@ -7,6 +7,8 @@ import prisma from "@/lib/prisma";
 import { RoleProvider } from "./context";
 import { HotelProvider } from "./hotelContext";
 import { getHotels } from "./hotels/page";
+import { BookingProvider } from "./bookingContext";
+import { getBookingsByUserId } from "./bookings/page";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -54,6 +56,8 @@ export default async function RootLayout({
       : "NONE";
 
   const hotels = await getHotels();
+  const bookings = await getBookingsByUserId(UserId || "");
+
   return (
     <html lang="ru">
       <body
@@ -61,7 +65,9 @@ export default async function RootLayout({
       >
         <Navbar initialSession={!!session} role={role} id={UserId || ""} />
         <RoleProvider role={role} userId={UserId || ""} CustomerID={CustomerID}>
-          <HotelProvider hotels={hotels}>{children}</HotelProvider>
+          <HotelProvider hotels={hotels}>
+            <BookingProvider bookings={bookings}>{children}</BookingProvider>
+          </HotelProvider>
         </RoleProvider>
       </body>
     </html>

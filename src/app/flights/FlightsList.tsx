@@ -4,6 +4,8 @@ import { useState } from "react";
 import FlightsCard from "../components/FlightsCard";
 import CreateFlightForm from "./CreateFlightForm";
 import { useRole } from "../context";
+import HighlightedText from "../components/HighlightedText";
+import SortButton from "../components/SortButton";
 
 type SortField =
   | "none"
@@ -24,87 +26,24 @@ type Flight = {
   AirlineCode: string;
 };
 
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
-
 export function FlightsList({ initialFlights }: { initialFlights: Flight[] }) {
   const { role } = useRole();
 
-  const [originalFlights, setOriginalFlights] = useState(initialFlights);
+  const [originalFlights] = useState(initialFlights);
   const [flights, setFlights] = useState(initialFlights);
   const [sortField, setSortField] = useState<SortField>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setFlights(filterFlights(originalFlights, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortFlights = (
+    flights: Flight[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...flights];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedFlights = [...flights].sort((a, b) => {
+    return [...flights].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
@@ -121,20 +60,16 @@ export function FlightsList({ initialFlights }: { initialFlights: Flight[] }) {
       if (!compareA) compareA = 0;
       if (!compareB) compareB = 0;
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setFlights(sortedFlights);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterFlights = (flights: Flight[], query: string) => {
-    if (!query.trim()) return sortField === "none" ? originalFlights : flights;
+    if (!query.trim()) return flights;
 
     return flights.filter(
       (flight) =>
@@ -145,22 +80,43 @@ export function FlightsList({ initialFlights }: { initialFlights: Flight[] }) {
     );
   };
 
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      const newOrder = sortOrder === "asc" ? "desc" : "asc";
+      setSortOrder(newOrder);
+      const sorted = sortFlights(
+        filterFlights(originalFlights, searchQuery),
+        field,
+        newOrder
+      );
+      setFlights(sorted);
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+      const sorted = sortFlights(
+        filterFlights(originalFlights, searchQuery),
+        field,
+        "asc"
+      );
+      setFlights(sorted);
+    }
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filteredFlights = filterFlights(
-      sortField === "none" ? originalFlights : flights,
-      query
-    );
-    setFlights(filteredFlights);
+    const filtered = filterFlights(originalFlights, query);
+    const sorted = sortFlights(filtered, sortField, sortOrder);
+    setFlights(sorted);
   };
 
   const handleFlightDelete = (deletedFlightId: number) => {
-    setFlights((prevFlights) =>
-      prevFlights.filter((flight) => flight.FlightID !== deletedFlightId)
+    const updatedOriginal = originalFlights.filter(
+      (flight) => flight.FlightID !== deletedFlightId
     );
-    setOriginalFlights((prevFlights) =>
-      prevFlights.filter((flight) => flight.FlightID !== deletedFlightId)
-    );
+    const updatedFiltered = filterFlights(updatedOriginal, searchQuery);
+    const sorted = sortFlights(updatedFiltered, sortField, sortOrder);
+
+    setFlights(sorted);
   };
 
   return (

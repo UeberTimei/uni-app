@@ -4,6 +4,8 @@ import { useState } from "react";
 import HotelsCard from "../components/HotelsCard";
 import CreateHotelForm from "./CreateHotelForm";
 import { useRole } from "../context";
+import HighlightedText from "../components/HighlightedText";
+import SortButton from "../components/SortButton";
 
 type SortField = "none" | "HotelName" | "StarRating" | "PricePerNight";
 type SortOrder = "asc" | "desc";
@@ -22,66 +24,6 @@ type Hotel = {
 type HotelWithMappedRating = Omit<Hotel, "StarRating"> & {
   StarRating: "ONE" | "TWO" | "THREE" | "FOUR" | "FIVE" | "NULL";
 };
-
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
 
 export function HotelsList({ initialHotels }: { initialHotels: Hotel[] }) {
   const mappedInitialHotels: HotelWithMappedRating[] = initialHotels.map(
@@ -113,17 +55,14 @@ export function HotelsList({ initialHotels }: { initialHotels: Hotel[] }) {
     return ratingMap[textRating as keyof typeof ratingMap] || 0;
   };
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setHotels(filterHotels(originalHotels, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortHotels = (
+    hotels: HotelWithMappedRating[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...hotels];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedHotels = [...hotels].sort((a, b) => {
+    return [...hotels].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
@@ -140,20 +79,16 @@ export function HotelsList({ initialHotels }: { initialHotels: Hotel[] }) {
       if (!compareA) compareA = 0;
       if (!compareB) compareB = 0;
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setHotels(sortedHotels);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterHotels = (hotels: HotelWithMappedRating[], query: string) => {
-    if (!query.trim()) return sortField === "none" ? originalHotels : hotels;
+    if (!query.trim()) return hotels;
 
     return hotels.filter(
       (hotel) =>
@@ -163,19 +98,30 @@ export function HotelsList({ initialHotels }: { initialHotels: Hotel[] }) {
     );
   };
 
+  const handleSort = (field: SortField) => {
+    const newOrder =
+      field === sortField && sortOrder === "asc" ? "desc" : "asc";
+    setSortOrder(newOrder);
+    setSortField(field);
+    const filtered = filterHotels(originalHotels, searchQuery);
+    const sorted = sortHotels(filtered, field, newOrder);
+    setHotels(sorted);
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    const filteredHotels = filterHotels(
-      sortField === "none" ? originalHotels : hotels,
-      query
-    );
-    setHotels(filteredHotels);
+    const filtered = filterHotels(originalHotels, query);
+    const sorted = sortHotels(filtered, sortField, sortOrder);
+    setHotels(sorted);
   };
 
   const handleHotelDelete = (deletedHotelId: number) => {
-    setHotels((prevHotels) =>
-      prevHotels.filter((hotel) => hotel.HotelID !== deletedHotelId)
+    const updatedOriginal = originalHotels.filter(
+      (hotel) => hotel.HotelID !== deletedHotelId
     );
+    const filtered = filterHotels(updatedOriginal, searchQuery);
+    const sorted = sortHotels(filtered, sortField, sortOrder);
+    setHotels(sorted);
   };
 
   return (

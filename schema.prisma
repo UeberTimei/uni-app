@@ -110,13 +110,13 @@ model Activity {
 
 model Review {
   ReviewID   Int       @id @default(autoincrement()) @map("review_id")
-  CustomerID Int?      @map("customer_id")
-  BookingID  Int?      @map("booking_id")
+  CustomerID Int      @map("customer_id")
+  BookingID  Int      @map("booking_id")
   Rating     Rating    @map("rating")
-  Comment    String?   @map("comment")
+  Comment    String   @map("comment")
   ReviewDate DateTime  @map("review_date")
-  Booking    Booking?  @relation(fields: [BookingID], references: [BookingID], onDelete: Cascade)
-  Customer   Customer? @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
+  Booking    Booking  @relation(fields: [BookingID], references: [BookingID], onDelete: Cascade)
+  Customer   Customer @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
 
   @@map("reviews")
 }

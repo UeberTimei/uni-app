@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import CustomersCard from "../components/CustomersCard";
-import { useRouter } from "next/navigation";
+import HighlightedText from "../components/HighlightedText";
+import SortButton from "../components/SortButton";
 
 type SortField = "none" | "FirstName" | "LastName" | "Email" | "City";
 type SortOrder = "asc" | "desc";
@@ -18,111 +19,41 @@ type Customer = {
   City: string | null;
 };
 
-function HighlightedText({
-  text,
-  highlight,
-}: {
-  text: string;
-  highlight: string;
-}) {
-  if (!highlight.trim()) {
-    return <span>{text}</span>;
-  }
-
-  const regex = new RegExp(`(${highlight})`, "gi");
-  const parts = text.split(regex);
-
-  return (
-    <span>
-      {parts.map((part, index) =>
-        regex.test(part) ? (
-          <span key={index} className="bg-yellow-200">
-            {part}
-          </span>
-        ) : (
-          <span key={index}>{part}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function SortButton({
-  field,
-  label,
-  active,
-  ascending,
-  onClick,
-}: {
-  field: SortField;
-  label: string;
-  active: boolean;
-  ascending: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors
-        ${
-          active
-            ? "bg-blue-500 text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-        }`}
-    >
-      {label}
-      {active && field !== "none" && (
-        <span className="text-sm">{ascending ? "↑" : "↓"}</span>
-      )}
-    </button>
-  );
-}
-
 export function CustomersList({
   initialCustomers,
 }: {
   initialCustomers: Customer[];
 }) {
-  const router = useRouter();
-
-  const [originalCustomers, setOriginalCustomers] = useState(initialCustomers);
+  const [originalCustomers] = useState(initialCustomers);
   const [customers, setCustomers] = useState(initialCustomers);
   const [sortField, setSortField] = useState<SortField>("none");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleSort = (field: SortField) => {
-    if (field === "none") {
-      setCustomers(filterCustomers(originalCustomers, searchQuery));
-      setSortField("none");
-      return;
-    }
+  const sortCustomers = (
+    customers: Customer[],
+    field: SortField,
+    order: SortOrder
+  ) => {
+    if (field === "none") return [...customers];
 
-    const newSortOrder =
-      field === sortField && sortOrder === "asc" ? "desc" : "asc";
-
-    const sortedCustomers = [...customers].sort((a, b) => {
+    return [...customers].sort((a, b) => {
       let compareA = a[field];
       let compareB = b[field];
 
       if (!compareA) compareA = "";
       if (!compareB) compareB = "";
 
-      if (newSortOrder === "asc") {
+      if (order === "asc") {
         return compareA > compareB ? 1 : -1;
       } else {
         return compareA < compareB ? 1 : -1;
       }
     });
-
-    setCustomers(sortedCustomers);
-    setSortField(field);
-    setSortOrder(newSortOrder);
   };
 
   const filterCustomers = (customers: Customer[], query: string) => {
-    if (!query.trim())
-      return sortField === "none" ? originalCustomers : customers;
+    if (!query.trim()) return customers;
 
     return customers.filter(
       (customer) =>
@@ -137,30 +68,43 @@ export function CustomersList({
     );
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    const filteredCustomers = filterCustomers(
-      sortField === "none" ? originalCustomers : customers,
-      query
-    );
-    setCustomers(filteredCustomers);
+  const handleSort = (field: SortField) => {
+    if (field === sortField) {
+      const newOrder = sortOrder === "asc" ? "desc" : "asc";
+      setSortOrder(newOrder);
+      const sorted = sortCustomers(
+        filterCustomers(originalCustomers, searchQuery),
+        field,
+        newOrder
+      );
+      setCustomers(sorted);
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+      const sorted = sortCustomers(
+        filterCustomers(originalCustomers, searchQuery),
+        field,
+        "asc"
+      );
+      setCustomers(sorted);
+    }
   };
 
-  useEffect(() => {
-    router.refresh();
-  }, [customers, router]);
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    const filtered = filterCustomers(originalCustomers, query);
+    const sorted = sortCustomers(filtered, sortField, sortOrder);
+    setCustomers(sorted);
+  };
 
   const handleCustomerDelete = (deletedCustomerId: number) => {
-    setCustomers((prevCustomers) =>
-      prevCustomers.filter(
-        (customer) => customer.CustomerID !== deletedCustomerId
-      )
+    const updatedOriginal = originalCustomers.filter(
+      (customer) => customer.CustomerID !== deletedCustomerId
     );
-    setOriginalCustomers((prevCustomers) =>
-      prevCustomers.filter(
-        (customer) => customer.CustomerID !== deletedCustomerId
-      )
-    );
+    const updatedFiltered = filterCustomers(updatedOriginal, searchQuery);
+    const sorted = sortCustomers(updatedFiltered, sortField, sortOrder);
+
+    setCustomers(sorted);
   };
 
   return (
@@ -168,7 +112,7 @@ export function CustomersList({
       <div className="w-full max-w-4xl mb-6">
         <input
           type="text"
-          placeholder="Поиск клиентов..."
+          placeholder="Search customers..."
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -185,28 +129,28 @@ export function CustomersList({
         />
         <SortButton
           field="FirstName"
-          label="По имени"
+          label="Сортировка по имени"
           active={sortField === "FirstName"}
           ascending={sortField === "FirstName" && sortOrder === "asc"}
           onClick={() => handleSort("FirstName")}
         />
         <SortButton
           field="LastName"
-          label="По фамилии"
+          label="Сортировка по фамилии"
           active={sortField === "LastName"}
           ascending={sortField === "LastName" && sortOrder === "asc"}
           onClick={() => handleSort("LastName")}
         />
         <SortButton
           field="Email"
-          label="По email"
+          label="Сортировка по электронной почте"
           active={sortField === "Email"}
           ascending={sortField === "Email" && sortOrder === "asc"}
           onClick={() => handleSort("Email")}
         />
         <SortButton
           field="City"
-          label="По городу"
+          label="Сортировка по городу"
           active={sortField === "City"}
           ascending={sortField === "City" && sortOrder === "asc"}
           onClick={() => handleSort("City")}
@@ -240,19 +184,19 @@ export function CustomersList({
               }
               PhoneNumber={
                 <HighlightedText
-                  text={customer.PhoneNumber ?? "Не известно"}
+                  text={customer.PhoneNumber ?? "Unknown"}
                   highlight={searchQuery}
                 />
               }
               Address={
                 <HighlightedText
-                  text={customer.Address ?? "Не известно"}
+                  text={customer.Address ?? "Unknown"}
                   highlight={searchQuery}
                 />
               }
               City={
                 <HighlightedText
-                  text={customer.City ?? "Не известно"}
+                  text={customer.City ?? "Unknown"}
                   highlight={searchQuery}
                 />
               }
@@ -261,7 +205,7 @@ export function CustomersList({
           ))
         ) : (
           <div className="text-gray-500 text-center py-8">
-            Клиенты не найдены.
+            Клиенты не найдены
           </div>
         )}
       </div>

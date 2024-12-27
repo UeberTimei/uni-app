@@ -77,7 +77,7 @@ export default function ActivitiesCard({
         <p className="text-gray-700 text-base mb-4">{Description}</p>
         <div className="flex items-center justify-between text-gray-600 text-sm">
           <span>
-            {Duration} час{Duration > 5 ? "ов" : Duration > 1 ? "" : "а"}
+            {Duration} час{Duration > 5 ? "ов" : Duration > 1 ? "а" : ""}
           </span>
           <span className="font-semibold">${Cost}</span>
         </div>
