@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String?
+  password        String
+  role            UserRole  @default(CLIENT)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  customerProfile Customer?
+
+  @@map("users")
+}
+
+model Customer {
+  UserId      String    @unique @map("user_id")
+  CustomerID  Int       @id @default(autoincrement()) @map("customer_id")
+  FirstName   String    @map("first_name") @db.VarChar(50)
+  LastName    String    @map("last_name") @db.VarChar(50)
+  Email       String    @unique @map("email") @db.VarChar(100)
+  PhoneNumber String?   @map("phone_number") @db.VarChar(20)
+  Address     String?   @map("address") @db.VarChar(200)
+  City        String?   @map("city") @db.VarChar(100)
+  Bookings    Booking[]
+  User        User      @relation(fields: [UserId], references: [id], onDelete: Cascade)
+  Reviews     Review[]
+
+  @@map("customers")
+}
+
+model Destination {
+  DestinationID      Int        @id @default(autoincrement()) @map("destination_id")
+  CountryName        String     @map("country_name") @db.VarChar(100)
+  CityName           String     @map("city_name") @db.VarChar(100)
+  Description        String?    @map("description")
+  AverageTemperature Decimal?   @map("average_temperature") @db.Decimal(5, 2)
+  Currency           String?    @map("currency") @db.VarChar(50)
+  Activities         Activity[]
+  Hotels             Hotel[]
+
+  @@map("destinations")
+}
+
+model Hotel {
+  HotelID       Int         @id @default(autoincrement()) @map("hotel_id")
+  DestinationID Int         @map("destination_id")
+
+  HotelName     String      @map("hotel_name") @db.VarChar(150)
+  StarRating    Rating?     @map("star_rating")
+  PricePerNight Decimal     @map("price_per_night") @db.Decimal(10, 2)
+  Description   String?     @map("description")
+  Bookings      Booking[]
+  Destination   Destination @relation(fields: [DestinationID], references: [DestinationID], onDelete: Cascade)
+
+  @@map("hotels")
+}
+
+model Flight {
+  FlightID         Int       @id @default(autoincrement()) @map("flight_id")
+  DepartureAirport String    @map("departure_airport") @db.VarChar(100)
+  ArrivalAirport   String    @map("arrival_airport") @db.VarChar(100)
+  DepartureDate    DateTime  @map("departure_date")
+  ArrivalDate      DateTime  @map("arrival_date")
+  FlightDuration   Int       @map("flight_duration")
+  FlightNumber     String    @map("flight_number") @db.VarChar(20)
+  AirlineCode      String    @map("airline_code") @db.VarChar(10)
+  Bookings         Booking[]
+
+  @@map("flights")
+}
+
+model Booking {
+  BookingID    Int      @id @default(autoincrement()) @map("booking_id")
+  CustomerID   Int      @map("customer_id")
+  FlightID     Int      @map("flight_id")
+  HotelID      Int      @map("hotel_id")
+  TotalCost    Decimal  @map("total_cost") @db.Decimal(12, 2)
+  BookingDate  DateTime @map("booking_date")
+  CheckInDate  DateTime @map("check_in_date")
+  CheckOutDate DateTime @map("check_out_date")
+  Customer     Customer @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
+  Flight       Flight   @relation(fields: [FlightID], references: [FlightID], onDelete: Cascade)
+  Hotel        Hotel    @relation(fields: [HotelID], references: [HotelID], onDelete: Cascade)
+  Reviews      Review[]
+
+  @@map("bookings")
+}
+
+model Activity {
+  ActivityID    Int         @id @default(autoincrement()) @map("activity_id")
+  DestinationID Int         @map("destination_id")
+
+  ActivityName  String      @map("activity_name") @db.VarChar(200)
+  Description   String?     @map("description")
+  Duration      Int         @map("duration")
+  Cost          Decimal     @map("cost") @db.Decimal(8, 2)
+  Destination   Destination @relation(fields: [DestinationID], references: [DestinationID], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+model Review {
+  ReviewID   Int       @id @default(autoincrement()) @map("review_id")
+  CustomerID Int?      @map("customer_id")
+  BookingID  Int?      @map("booking_id")
+  Rating     Rating    @map("rating")
+  Comment    String?   @map("comment")
+  ReviewDate DateTime  @map("review_date")
+  Booking    Booking?  @relation(fields: [BookingID], references: [BookingID], onDelete: Cascade)
+  Customer   Customer? @relation(fields: [CustomerID], references: [CustomerID], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+enum UserRole {
+  CLIENT
+  ADMIN
+}
+
+enum Rating {
+  ONE
+  TWO
+  THREE
+  FOUR
+  FIVE
+  NULL
+}
